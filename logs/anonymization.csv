@@ -1,0 +1,4 @@
+﻿timestamp,request_id,total_tokens,names,phones,emails,addresses,anonymized_length
+2026-10-24T07:47:33,7be430f9cf62,7,1,1,0,4,383
+2026-10-24T07:49:47,4c3ba01cdb41,2,1,1,0,0,119
+2026-10-24T07:50:34,d068d1d9456b,5,1,1,0,2,293

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-помощник обработки заявок</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #dfe4ea;
+    --text: #1f2933;
+    --muted: #6b7684;
+    --accent: #0b6ef3;
+    --accent-dark: #0954c4;
+    --green: #1a7f4b;
+    --green-bg: #e6f5ec;
+    --red: #b42318;
+    --red-bg: #fdecea;
+    --amber: #8a5a00;
+    --amber-bg: #fdf3d8;
+    --gray: #4b5563;
+    --gray-bg: #eef1f4;
+  }
+  * { box-sizing: border-box; }
+  /* Атрибут hidden должен всегда побеждать display из других правил */
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  main {
+    max-width: 1100px;
+    margin: 20px auto;
+    padding: 0 16px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; }
+  .panel h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field.full { grid-column: 1 / -1; }
+  label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .req { color: var(--red); }
+  input, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input.invalid, textarea.invalid { border-color: var(--red); }
+  textarea {
+    min-height: 190px;
+    resize: vertical;
+  }
+  .actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 9px 14px;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 20px;
+  }
+  button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+  .samples { display: flex; flex-direction: column; gap: 8px; }
+  .sample { text-align: left; width: 100%; }
+  .sample:hover { border-color: var(--accent); background: #f7faff; }
+  .sample strong { display: block; font-size: 14px; }
+  .sample span { display: block; color: var(--muted); font-size: 13px; }
+  .status { color: var(--muted); font-size: 14px; }
+  .spinner { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 8px 0 16px; }
+  .ring {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error {
+    background: var(--red-bg);
+    border: 1px solid #f3c2bd;
+    color: var(--red);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  .placeholder { color: var(--muted); font-size: 14px; }
+  .card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 16px; background: #f9fafb; border-bottom: 1px solid var(--border);
+  }
+  .card-header h3 { margin: 0; font-size: 15px; }
+  .contacts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef1f4;
+    background: #fcfdfe;
+  }
+  .contact-label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  }
+  .contact-value { font-size: 14px; word-break: break-word; }
+  .integration {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #dbe9ff;
+  }
+  .int-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+  .int-chip {
+    display: inline-block; padding: 3px 8px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .int-ok { background: var(--green-bg); color: var(--green); }
+  .int-fail { background: var(--red-bg); color: var(--red); }
+  .lead-badge, .flag {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .lead-целевой { background: var(--green-bg); color: var(--green); }
+  .lead-нецелевой { background: var(--gray-bg); color: var(--gray); }
+  .lead-неясно { background: var(--amber-bg); color: var(--amber); }
+  .flag-yes { background: var(--red-bg); color: var(--red); }
+  .flag-no { background: var(--green-bg); color: var(--green); }
+  .field { padding: 12px 16px; border-bottom: 1px solid #eef1f4; }
+  .field:last-child { border-bottom: none; }
+  .field-label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .field-value { white-space: pre-wrap; }
+  .field-value ul { margin: 0; padding-left: 20px; }
+  .muted { color: var(--muted); font-style: italic; }
+  .draft { white-space: pre-wrap; background: #f9fafb; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .anonymized { margin-top: 18px; }
+  .anonymized-text {
+    margin: 0; padding: 12px 16px;
+    white-space: pre-wrap; word-break: break-word;
+    font-family: Consolas, "Courier New", monospace; font-size: 13px; line-height: 1.55;
+    background: #fcfdfe; color: var(--text);
+  }
+  .anonymized-text.placeholder { color: var(--muted); font-family: inherit; font-size: 14px; font-style: italic; }
+  .notes { margin: 0; padding: 12px 16px; background: var(--amber-bg); color: var(--amber); font-size: 13px; }
+  .notes ul { margin: 0; padding-left: 20px; }
+  .copy-btn { padding: 5px 10px; font-size: 13px; margin-top: 8px; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 30px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI-помощник обработки входящих заявок</h1>
+  <p>Компания «ОфисМебель»: столы, кресла, шкафы, доставка и сборка. MVP на GigaChat API.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Заявка клиента</h2>
+    <form id="request-form" novalidate>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="client-name">Имя <span class="req">*</span></label>
+          <input id="client-name" name="name" type="text" maxlength="120"
+                 placeholder="Иван Петров" autocomplete="name">
+        </div>
+        <div class="form-field">
+          <label for="client-phone">Телефон <span class="req">*</span></label>
+          <input id="client-phone" name="phone" type="tel" maxlength="40"
+                 placeholder="+7 916 245-18-03" autocomplete="tel">
+        </div>
+        <div class="form-field full">
+          <label for="client-email">Почта</label>
+          <input id="client-email" name="email" type="email" maxlength="120"
+                 placeholder="ivan@company.ru" autocomplete="email">
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="request-text">Заявка <span class="req">*</span></label>
+        <textarea id="request-text" name="text" maxlength="20000"
+                  placeholder="Что нужно клиенту: товар, количество, бюджет, сроки, адрес доставки..."></textarea>
+      </div>
+
+      <div class="error" id="form-error" hidden></div>
+
+      <div class="actions">
+        <button id="submit-btn" class="primary" type="submit">Обработать</button>
+        <button id="clear-btn" type="button">Очистить</button>
+        <span class="status" id="hint">Ответ обычно занимает 5–20 секунд</span>
+      </div>
+    </form>
+
+    <div class="card anonymized">
+      <div class="card-header">
+        <h3>Запрос в нейросеть</h3>
+        <span class="contact-label">без персональных данных</span>
+      </div>
+      <pre class="anonymized-text placeholder" id="anonymized-text">Заполните форму — здесь появится анонимизированный текст, который уйдёт в GigaChat.</pre>
+    </div>
+
+    <h3>Тестовые заявки</h3>
+    <p class="muted">Кнопка заполнит поля формы — обработку запускает кнопка «Обработать».</p>
+    <div class="samples">
+      {% for sample in samples %}
+      <button class="sample" type="button"
+              data-name="{{ sample.name }}"
+              data-phone="{{ sample.phone }}"
+              data-email="{{ sample.email }}"
+              data-text="{{ sample.text }}">
+        <strong>{{ sample.title }}</strong>
+        <span>{{ sample.description }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Результат обработки</h2>
+    <div id="error-box" class="error" hidden></div>
+    <div id="spinner" class="spinner" hidden>
+      <div class="ring"></div><span>Обрабатываем заявку…</span>
+    </div>
+    <div id="placeholder" class="placeholder">Здесь появится карточка с разбором заявки.</div>
+    <div id="result" class="card" hidden></div>
+  </section>
+</main>
+
+<footer>
+  Все данные синтетические. Ключ GigaChat хранится в файле <code>.env</code> на сервере
+  и никогда не попадает в браузер.
+</footer>
+
+<script>
+  const LABELS = {
+    company: 'Компания',
+    summary: 'Суть запроса',
+    lead_type: 'Тип лида',
+    key_data: 'Известные данные',
+    missing_data: 'Чего не хватает',
+    next_step: 'Следующий шаг',
+    reply_draft: 'Черновик ответа',
+    needs_human: 'Нужен человек',
+    human_reason: 'Причина передачи человеку'
+  };
+
+  const LEAD_LABELS = {
+    'целевой': 'Целевой',
+    'нецелевой': 'Нецелевой',
+    'неясно': 'Неясно'
+  };
+
+  const FIELD_ORDER = [
+    ['company', 'text'],
+    ['summary', 'text'],
+    ['key_data', 'list'],
+    ['missing_data', 'list'],
+    ['next_step', 'text'],
+    ['reply_draft', 'draft'],
+    ['needs_human', 'bool'],
+    ['human_reason', 'text']
+  ];
+
+  const form = document.getElementById('request-form');
+  const nameInput = document.getElementById('client-name');
+  const phoneInput = document.getElementById('client-phone');
+  const emailInput = document.getElementById('client-email');
+  const textArea = document.getElementById('request-text');
+  const submitBtn = document.getElementById('submit-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const hint = document.getElementById('hint');
+  const formError = document.getElementById('form-error');
+  const errorBox = document.getElementById('error-box');
+  const spinner = document.getElementById('spinner');
+  const placeholder = document.getElementById('placeholder');
+  const resultBox = document.getElementById('result');
+  const anonymizedText = document.getElementById('anonymized-text');
+
+  const ANONYMIZED_EMPTY = 'Заполните форму — здесь появится анонимизированный текст, который уйдёт в GigaChat.';
+  let anonymizedTimer = null;
+  let anonymizedSeq = 0;
+
+  function setAnonymized(text) {
+    const hasText = Boolean(text);
+    anonymizedText.textContent = hasText ? text : ANONYMIZED_EMPTY;
+    anonymizedText.classList.toggle('placeholder', !hasText);
+  }
+
+  async function refreshAnonymized() {
+    const payload = {
+      name: nameInput.value.trim(),
+      phone: phoneInput.value.trim(),
+      email: emailInput.value.trim(),
+      text: textArea.value.trim()
+    };
+    const seq = ++anonymizedSeq;
+
+    if (!payload.name && !payload.phone && !payload.email && !payload.text) {
+      setAnonymized('');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/anonymize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) { return; }
+      const data = await response.json();
+      if (seq !== anonymizedSeq) { return; }
+      setAnonymized(data.anonymized_text || '');
+    } catch (error) {
+      // предпросмотр не критичен для работы формы
+    }
+  }
+
+  function scheduleAnonymized() {
+    clearTimeout(anonymizedTimer);
+    anonymizedTimer = setTimeout(refreshAnonymized, 350);
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) { node.className = className; }
+    if (text !== undefined && text !== null) { node.textContent = text; }
+    return node;
+  }
+
+  function fieldBlock(label, valueNode) {
+    const block = el('div', 'field');
+    block.appendChild(el('div', 'field-label', label));
+    block.appendChild(valueNode);
+    return block;
+  }
+
+  function listNode(items) {
+    if (!items || items.length === 0) {
+      return el('div', 'muted', 'не указано');
+    }
+    const list = el('ul');
+    items.forEach(function (item) { list.appendChild(el('li', null, item)); });
+    return list;
+  }
+
+  function renderContacts(contacts) {
+    if (!contacts) { return null; }
+    const box = el('div', 'contacts');
+    [['Имя', contacts.name], ['Телефон', contacts.phone], ['Почта', contacts.email]]
+      .forEach(function (pair) {
+        if (!pair[1]) { return; }
+        const cell = el('div');
+        cell.appendChild(el('div', 'contact-label', pair[0]));
+        cell.appendChild(el('div', 'contact-value', pair[1]));
+        box.appendChild(cell);
+      });
+    return box.children.length ? box : null;
+  }
+
+  function renderBitrix(status) {
+    if (!status || !status.configured) { return null; }
+    const box = el('div', 'integration');
+    box.appendChild(el('span', 'int-label', 'Битрикс24:'));
+    [
+      ['Лид #' + status.lead_id, Boolean(status.lead_id), 'Лид не создан'],
+      ['Задача #' + status.task_id, Boolean(status.task_id), 'Задача не создана'],
+      ['Уведомление отправлено', Boolean(status.notification_id), 'Уведомление не отправлено']
+    ].forEach(function (item) {
+      box.appendChild(el('span', 'int-chip ' + (item[1] ? 'int-ok' : 'int-fail'), item[1] ? item[0] : item[2]));
+    });
+    return box;
+  }
+
+  function renderResult(result, notes, contacts, bitrix) {
+    resultBox.innerHTML = '';
+
+    const header = el('div', 'card-header');
+    header.appendChild(el('h3', null, 'Карточка заявки'));
+    const lead = result.lead_type || 'неясно';
+    header.appendChild(el('span', 'lead-badge lead-' + lead, LEAD_LABELS[lead] || lead));
+    resultBox.appendChild(header);
+
+    const contactsBox = renderContacts(contacts);
+    if (contactsBox) { resultBox.appendChild(contactsBox); }
+
+    const bitrixBox = renderBitrix(bitrix);
+    if (bitrixBox) { resultBox.appendChild(bitrixBox); }
+
+    if (notes && notes.length) {
+      const notesBox = el('div', 'notes');
+      const list = el('ul');
+      notes.forEach(function (note) { list.appendChild(el('li', null, note)); });
+      notesBox.appendChild(list);
+      resultBox.appendChild(notesBox);
+    }
+
+    FIELD_ORDER.forEach(function (pair) {
+      const key = pair[0];
+      const kind = pair[1];
+      const value = result[key];
+
+      if (kind === 'list') {
+        resultBox.appendChild(fieldBlock(LABELS[key], listNode(value)));
+      } else if (kind === 'bool') {
+        const badge = el('span', value ? 'flag flag-yes' : 'flag flag-no', value ? 'Да' : 'Нет');
+        resultBox.appendChild(fieldBlock(LABELS[key], badge));
+      } else if (kind === 'draft') {
+        const wrapper = el('div');
+        wrapper.appendChild(el('div', 'draft', value || 'не указано'));
+        const copyBtn = el('button', 'copy-btn', 'Скопировать черновик');
+        copyBtn.type = 'button';
+        copyBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(value || '').then(function () {
+            copyBtn.textContent = 'Скопировано';
+            setTimeout(function () { copyBtn.textContent = 'Скопировать черновик'; }, 2000);
+          });
+        });
+        wrapper.appendChild(copyBtn);
+        resultBox.appendChild(fieldBlock(LABELS[key], wrapper));
+      } else {
+        resultBox.appendChild(fieldBlock(LABELS[key], el('div', 'field-value', value || 'не указано')));
+      }
+    });
+
+    resultBox.hidden = false;
+    placeholder.hidden = true;
+    resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.hidden = false;
+    resultBox.hidden = true;
+    placeholder.hidden = true;
+  }
+
+  function showFormError(message, node) {
+    formError.textContent = message;
+    formError.hidden = false;
+    [nameInput, phoneInput, emailInput, textArea].forEach(function (field) {
+      field.classList.remove('invalid');
+    });
+    if (node) { node.classList.add('invalid'); node.focus(); }
+  }
+
+  function clearFormError() {
+    formError.hidden = true;
+    [nameInput, phoneInput, emailInput, textArea].forEach(function (field) {
+      field.classList.remove('invalid');
+    });
+  }
+
+  function validate() {
+    const name = nameInput.value.trim();
+    const phone = phoneInput.value.trim();
+    const email = emailInput.value.trim();
+    const text = textArea.value.trim();
+
+    if (!name) {
+      showFormError('Укажите имя — как к вам обращаться.', nameInput);
+      return null;
+    }
+    if (!phone) {
+      showFormError('Укажите телефон клиента.', phoneInput);
+      return null;
+    }
+    if (!/^[+\d()\s\-]{7,}$/.test(phone)) {
+      showFormError('Телефон выглядит некорректно. Пример: +7 916 245-18-03', phoneInput);
+      return null;
+    }
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) {
+      showFormError('Почта выглядит некорректно. Пример: name@company.ru', emailInput);
+      return null;
+    }
+    if (!text) {
+      showFormError('Впишите текст заявки в поле или нажмите одну из кнопок с тестовыми заявками.', textArea);
+      return null;
+    }
+
+    clearFormError();
+    return { name: name, phone: phone, email: email, text: text };
+  }
+
+  function setBusy(busy) {
+    submitBtn.disabled = busy;
+    spinner.hidden = !busy;
+    if (busy) {
+      hint.textContent = 'Заявка отправлена в GigaChat…';
+      errorBox.hidden = true;
+      resultBox.hidden = true;
+      placeholder.hidden = true;
+    } else {
+      hint.textContent = 'Ответ обычно занимает 5–20 секунд';
+    }
+  }
+
+  async function analyze(payload) {
+    setBusy(true);
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(function () {
+        return { error: 'Сервер вернул ответ, который не удалось прочитать.' };
+      });
+      if (data.anonymized_text) {
+        clearTimeout(anonymizedTimer);
+        anonymizedSeq += 1;
+        setAnonymized(data.anonymized_text);
+      }
+      if (!response.ok || data.error) {
+        showError(data.error || 'Не удалось обработать заявку. Попробуйте ещё раз.');
+        return;
+      }
+      renderResult(data.result || {}, data.notes || [], data.contacts || null, data.bitrix || null);
+      hint.textContent = 'Карточка заявки готова.';
+    } catch (error) {
+      showError('Не удалось связаться с приложением. Проверьте, что программа запущена, и обновите страницу.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const payload = validate();
+    if (!payload) { return; }
+    analyze(payload);
+  });
+
+  textArea.addEventListener('keydown', function (event) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit'));
+    }
+  });
+
+  [nameInput, phoneInput, emailInput, textArea].forEach(function (field) {
+    field.addEventListener('input', scheduleAnonymized);
+  });
+
+  clearBtn.addEventListener('click', function () {
+    form.reset();
+    clearFormError();
+    clearTimeout(anonymizedTimer);
+    anonymizedSeq += 1;
+    setAnonymized('');
+    errorBox.hidden = true;
+    resultBox.hidden = true;
+    placeholder.hidden = false;
+    hint.textContent = 'Форма очищена. Ответ обычно занимает 5–20 секунд';
+    nameInput.focus();
+  });
+
+  document.querySelectorAll('.sample').forEach(function (button) {
+    button.addEventListener('click', function () {
+      nameInput.value = button.getAttribute('data-name') || '';
+      phoneInput.value = button.getAttribute('data-phone') || '';
+      emailInput.value = button.getAttribute('data-email') || '';
+      textArea.value = button.getAttribute('data-text') || '';
+      clearFormError();
+      errorBox.hidden = true;
+      hint.textContent = 'Заявка подставлена. Нажмите «Обработать».';
+      refreshAnonymized();
+      textArea.focus();
+    });
+  });
+</script>
+</body>
+</html>

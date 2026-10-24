@@ -1,0 +1,16 @@
+# Секреты (ключ GigaChat) - не должны попасть в git
+.env
+
+# Виртуальное окружение Python и кэш
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Сертификаты (скачиваются автоматически при запуске)
+certs/
+
+# Служебные файлы Windows
+Thumbs.db
+desktop.ini
+.DS_Store
